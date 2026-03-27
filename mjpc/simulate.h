@@ -84,6 +84,12 @@ class MJSIMULATEAPI Simulate {
 
   static constexpr int kMaxFilenameLength = 1000;
 
+  int max_timesteps = 0;
+  std::string video_fname;
+  std::string video_path;
+  int video_fps = 30;
+  int render_frame_count = 0;
+
   // model and data to be visualized
   mjModel* mnew = nullptr;
   mjData* dnew = nullptr;

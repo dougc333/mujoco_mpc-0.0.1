@@ -19,6 +19,8 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
+#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <ratio>
@@ -53,6 +55,19 @@ namespace mju = ::mujoco::util_mjpc;
 
 using Seconds = std::chrono::duration<double>;
 using Milliseconds = std::chrono::duration<double, std::milli>;
+
+std::string ShellQuote(std::string_view value) {
+  std::string quoted = "'";
+  for (char c : value) {
+    if (c == '\'') {
+      quoted += "'\"'\"'";
+    } else {
+      quoted += c;
+    }
+  }
+  quoted += "'";
+  return quoted;
+}
 
 //------------------------------------------- global -----------------------------------------------
 
@@ -1947,8 +1962,10 @@ void Simulate::Render() {
     this->agent->PlotShow(&smallrect, &this->platform_ui->mjr_context());
   }
 
-  // take screenshot, save to file
-  if (this->screenshotrequest.exchange(false)) {
+  // save screenshots and/or frame captures
+  bool save_screenshot = this->screenshotrequest.exchange(false);
+  bool save_frame = !this->video_fname.empty();
+  if (save_screenshot || save_frame) {
     const unsigned int h = uistate.rect[0].height;
     const unsigned int w = uistate.rect[0].width;
     std::unique_ptr<unsigned char[]> rgb(new unsigned char[3*w*h]);
@@ -1964,17 +1981,28 @@ void Simulate::Render() {
       std::swap_ranges(top_row, top_row+3*w, bottom_row);
     }
 
-    // save as PNG
-    // TODO(b/241577466): Parse the stem of the filename and use a .PNG extension.
-    // Unfortunately, if we just yank ".xml"/".mjb" from the filename and append .PNG, the macOS
-    // file dialog does not automatically open that location. Thus, we defer to a default
-    // "screenshot.png" for now.
-    const std::string path = GetSavePath("screenshot.png");
-    if (!path.empty()) {
-      if (lodepng::encode(path, rgb.get(), w, h, LCT_RGB)) {
-        mju_error("could not save screenshot");
-      } else {
-        std::printf("saved screenshot: %s\n", path.c_str());
+    if (save_screenshot) {
+      // save as PNG
+      // TODO(b/241577466): Parse the stem of the filename and use a .PNG extension.
+      // Unfortunately, if we just yank ".xml"/".mjb" from the filename and append .PNG, the macOS
+      // file dialog does not automatically open that location. Thus, we defer to a default
+      // "screenshot.png" for now.
+      const std::string path = GetSavePath("screenshot.png");
+      if (!path.empty()) {
+        if (lodepng::encode(path, rgb.get(), w, h, LCT_RGB)) {
+          mju_error("could not save screenshot");
+        } else {
+          std::printf("saved screenshot: %s\n", path.c_str());
+        }
+      }
+    }
+
+    if (save_frame) {
+      char frame_path[Simulate::kMaxFilenameLength];
+      std::snprintf(frame_path, sizeof(frame_path), "%s_%06d.png",
+                    this->video_fname.c_str(), this->render_frame_count);
+      if (lodepng::encode(frame_path, rgb.get(), w, h, LCT_RGB)) {
+        mju_error("could not save frame capture");
       }
     }
   }
@@ -2051,7 +2079,8 @@ void Simulate::InitializeRenderLoop() {
 
 void Simulate::RenderLoop() {
   // run event loop
-  while (!this->platform_ui->ShouldCloseWindow() && !this->exitrequest.load()) {
+  while ((this->max_timesteps <= 0 || this->render_frame_count < this->max_timesteps) &&
+         !this->platform_ui->ShouldCloseWindow() && !this->exitrequest.load()) {
     {
       const std::lock_guard<std::mutex> lock(this->mtx);
 
@@ -2071,9 +2100,33 @@ void Simulate::RenderLoop() {
 
     // render while simulation is running
     this->Render();
+    this->render_frame_count += 1;
   }
 
   this->exitrequest.store(true);
+
+  if (!this->video_path.empty() && !this->video_fname.empty() &&
+      this->render_frame_count > 0) {
+    const std::string pattern = this->video_fname + "_%06d.png";
+    const std::string command =
+        "ffmpeg -y -loglevel error -framerate " + std::to_string(this->video_fps) +
+        " -i " + ShellQuote(pattern) +
+        " -pix_fmt yuv420p " + ShellQuote(this->video_path);
+    int ffmpeg_status = std::system(command.c_str());
+    if (ffmpeg_status != 0) {
+      std::fprintf(stderr, "ffmpeg failed while creating video: %s\n",
+                   this->video_path.c_str());
+    } else {
+      std::printf("saved video: %s\n", this->video_path.c_str());
+      for (int i = 0; i < this->render_frame_count; ++i) {
+        char frame_path[Simulate::kMaxFilenameLength];
+        std::snprintf(frame_path, sizeof(frame_path), "%s_%06d.png",
+                      this->video_fname.c_str(), i);
+        std::error_code ec;
+        std::filesystem::remove(frame_path, ec);
+      }
+    }
+  }
 
   mjv_freeScene(&this->scn);
 }

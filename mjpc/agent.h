@@ -112,6 +112,7 @@ class Agent {
 
   // return horizon (continuous time)
   double Horizon() const;
+  void SetHorizon(double horizon) { horizon_ = horizon; }
 
   // render plots
   void PlotShow(mjrRect* rect, mjrContext* con);

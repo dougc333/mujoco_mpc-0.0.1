@@ -43,6 +43,8 @@
 ABSL_FLAG(std::string, task, "", "Which model to load on startup.");
 ABSL_FLAG(bool, planner_enabled, false,
           "If true, the planner will run on startup");
+ABSL_FLAG(std::string, plan, "",
+          "Convenience planner setting: use enabled or disabled. Empty leaves planner_enabled unchanged.");
 ABSL_FLAG(float, sim_percent_realtime, 100,
           "The realtime percentage at which the simulation will be launched.");
 ABSL_FLAG(bool, estimator_enabled, false,
@@ -53,6 +55,18 @@ ABSL_FLAG(bool, show_plot, true,
           "If true, the plots will be visible on startup");
 ABSL_FLAG(bool, show_info, true,
           "If true, the infotext panel will be visible on startup");
+ABSL_FLAG(int, steps, 100, "Steps to run simulator.");
+ABSL_FLAG(double, horizon, 0.35, "Planning horizon.");
+ABSL_FLAG(std::string, mode, "", "Initial task mode, for example Walk.");
+ABSL_FLAG(std::string, gait, "", "Initial gait selection, for example Trot.");
+ABSL_FLAG(double, walk_turn, 0.0, "Initial Walk turn parameter.");
+ABSL_FLAG(double, w0, 0.0, "Task weight 0.");
+ABSL_FLAG(double, w1, 0.0, "Task weight 1.");
+ABSL_FLAG(double, w2, 0.0, "Task weight 2.");
+ABSL_FLAG(double, w3, 0.0, "Task weight 3.");
+ABSL_FLAG(std::string, video, "",
+          "Output video file path (for example out.mp4). Empty disables video capture.");
+ABSL_FLAG(int, video_fps, 30, "Frames per second for saved video output.");
 
 
 namespace {
@@ -451,6 +465,14 @@ MjpcApp::MjpcApp(std::vector<std::shared_ptr<mjpc::Task>> tasks, int task_id) {
   sim->agent->PlotInitialize();
 
   sim->agent->plan_enabled = absl::GetFlag(FLAGS_planner_enabled);
+  std::string plan_flag = absl::GetFlag(FLAGS_plan);
+  if (!plan_flag.empty()) {
+    sim->agent->plan_enabled =
+        absl::EqualsIgnoreCase(plan_flag, "enabled") ||
+        absl::EqualsIgnoreCase(plan_flag, "true") ||
+        absl::EqualsIgnoreCase(plan_flag, "on") ||
+        plan_flag == "1";
+  }
 
   // Get the index of the closest sim percentage to the input.
   float desired_percent = absl::GetFlag(FLAGS_sim_percent_realtime);
@@ -464,6 +486,110 @@ MjpcApp::MjpcApp(std::vector<std::shared_ptr<mjpc::Task>> tasks, int task_id) {
 
   sim->delete_old_m_d = true;
   sim->loadrequest = 2;
+
+  int max_timesteps = absl::GetFlag(FLAGS_steps);
+
+  // set agent parameters
+  sim->agent->SetHorizon(absl::GetFlag(FLAGS_horizon));
+
+  double w0 = absl::GetFlag(FLAGS_w0);
+  double w1 = absl::GetFlag(FLAGS_w1);
+  double w2 = absl::GetFlag(FLAGS_w2);
+  double w3 = absl::GetFlag(FLAGS_w3);
+
+  if (task_name == "Quadruped Flat") {
+    // set task weights
+    sim->agent->ActiveTask()->weight[1] = w0;
+    sim->agent->ActiveTask()->weight[2] = w1;
+
+    // set task parameters
+    sim->agent->ActiveTask()->parameters[5] = w2;
+    sim->agent->ActiveTask()->parameters[6] = w3;
+  } else if (task_name == "Hand") {
+    // set task weights
+    sim->agent->ActiveTask()->weight[0] = w0;
+    sim->agent->ActiveTask()->weight[1] = w1;
+    sim->agent->ActiveTask()->weight[2] = w2;
+    sim->agent->ActiveTask()->weight[3] = w3;
+  }
+
+  std::string mode_flag = absl::GetFlag(FLAGS_mode);
+  bool walk_mode_requested = false;
+  if (!mode_flag.empty()) {
+    if (absl::EqualsIgnoreCase(mode_flag, "walk")) mode_flag = "Walk";
+    if (absl::EqualsIgnoreCase(mode_flag, "quadruped")) mode_flag = "Quadruped";
+    if (absl::EqualsIgnoreCase(mode_flag, "biped")) mode_flag = "Biped";
+    if (absl::EqualsIgnoreCase(mode_flag, "scramble")) mode_flag = "Scramble";
+    if (absl::EqualsIgnoreCase(mode_flag, "flip")) mode_flag = "Flip";
+    walk_mode_requested = (mode_flag == "Walk");
+    sim->agent->SetModeByName(mode_flag);
+  }
+
+  std::string gait_flag = absl::GetFlag(FLAGS_gait);
+  if (!gait_flag.empty()) {
+    if (absl::EqualsIgnoreCase(gait_flag, "stand")) gait_flag = "Stand";
+    if (absl::EqualsIgnoreCase(gait_flag, "walk")) gait_flag = "Walk";
+    if (absl::EqualsIgnoreCase(gait_flag, "trot")) gait_flag = "Trot";
+    if (absl::EqualsIgnoreCase(gait_flag, "canter")) gait_flag = "Canter";
+    if (absl::EqualsIgnoreCase(gait_flag, "gallop")) gait_flag = "Gallop";
+    sim->agent->SetSelectionParamByName("Gait", gait_flag);
+  }
+
+  if (absl::GetFlag(FLAGS_walk_turn) != 0.0) {
+    sim->agent->SetParamByName("Walk turn", absl::GetFlag(FLAGS_walk_turn));
+  }
+
+  if (task_name == "Quadruped Flat" && walk_mode_requested) {
+    // Starting in Walk mode with zero position tracking and zero walk speed
+    // leaves the robot standing while only the mocap target moves.
+    if (sim->agent->ActiveTask()->weight[2] == 0.0) {
+      sim->agent->ActiveTask()->weight[2] = 1.0;
+      w1 = 1.0;
+    }
+    if (sim->agent->ActiveTask()->parameters[5] == 0.0) {
+      sim->agent->ActiveTask()->parameters[5] = 0.5;
+      w2 = 0.5;
+    }
+  }
+
+  if (task_name == "Quadruped Flat") {
+    printf(
+        "Quadruped startup: mode=%s gait_param=%.0f position_weight=%.3f "
+        "walk_speed=%.3f walk_turn=%.3f plan=%s\n",
+        sim->agent->GetModeName().c_str(),
+        sim->agent->ActiveTask()->parameters[0],
+        sim->agent->ActiveTask()->weight[2],
+        sim->agent->ActiveTask()->parameters[5],
+        sim->agent->ActiveTask()->parameters[6],
+        sim->agent->plan_enabled ? "enabled" : "disabled");
+  }
+
+  std::string video_fname;
+  std::string video_path = absl::GetFlag(FLAGS_video);
+  if (!video_path.empty()) {
+    // construct frame prefix used before ffmpeg encoding
+    if (task_name == "Quadruped Flat") {
+      video_fname += "quadruped";
+    } else if (task_name == "Hand") {
+      video_fname += "hand";
+    } else {
+      video_fname += "mjpc";
+    }
+    video_fname += "_planH_" + std::to_string(absl::GetFlag(FLAGS_horizon));
+    video_fname += "_w0_" + std::to_string(w0);
+    video_fname += "_w1_" + std::to_string(w1);
+    video_fname += "_w2_" + std::to_string(w2);
+    video_fname += "_w3_" + std::to_string(w3);
+  }
+
+  // planning threads
+  printf("Agent threads: %i\n", sim->agent->planner_threads());
+
+  sim->max_timesteps = max_timesteps;
+  sim->video_fname = video_fname;
+  sim->video_path = video_path;
+  sim->video_fps = absl::GetFlag(FLAGS_video_fps);
+  sim->render_frame_count = 0;
 
   sim->ui0_enable = absl::GetFlag(FLAGS_show_left_ui);
   sim->info = absl::GetFlag(FLAGS_show_info);

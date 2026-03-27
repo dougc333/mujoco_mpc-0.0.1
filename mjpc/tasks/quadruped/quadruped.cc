@@ -225,9 +225,8 @@ void QuadrupedFlat::TransitionLocked(mjModel* model, mjData* data) {
   // ---------- handle mjData reset ----------
   if (data->time < residual_.last_transition_time_ ||
       residual_.last_transition_time_ == -1) {
-    if (mode != ResidualFn::kModeQuadruped && mode != ResidualFn::kModeBiped) {
-      mode = ResidualFn::kModeQuadruped;  // mode stateful, switch to Quadruped
-    }
+    // Preserve an explicitly selected startup mode instead of forcing Walk/Flip
+    // back to Quadruped on the first transition tick.
     residual_.last_transition_time_ = residual_.phase_start_time_ =
         residual_.phase_start_ = data->time;
   }
