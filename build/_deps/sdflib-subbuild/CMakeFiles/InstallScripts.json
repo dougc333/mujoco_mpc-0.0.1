@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/dc/mujoco_mpc-0.0.1/build/_deps/sdflib-subbuild/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

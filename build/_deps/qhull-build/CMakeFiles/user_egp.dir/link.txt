@@ -1,0 +1,1 @@
+/usr/bin/cc -O3 -DNDEBUG -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names -L/opt/homebrew/opt/zlib/lib -Wl,-dead_strip CMakeFiles/user_egp.dir/src/user_eg/user_eg.c.o -o ../../bin/user_egp  -Wl,-rpath,/Users/dc/mujoco_mpc-0.0.1/build/lib ../../lib/libqhull_p.8.1-alpha1.dylib -lm

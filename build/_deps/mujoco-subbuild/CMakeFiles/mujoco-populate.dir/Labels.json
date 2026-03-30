@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/Users/dc/mujoco_mpc-0.0.1/build/_deps/mujoco-subbuild/CMakeFiles/mujoco-populate"
+		},
+		{
+			"file" : "/Users/dc/mujoco_mpc-0.0.1/build/_deps/mujoco-subbuild/CMakeFiles/mujoco-populate.rule"
+		},
+		{
+			"file" : "/Users/dc/mujoco_mpc-0.0.1/build/_deps/mujoco-subbuild/CMakeFiles/mujoco-populate-complete.rule"
+		},
+		{
+			"file" : "/Users/dc/mujoco_mpc-0.0.1/build/_deps/mujoco-subbuild/mujoco-populate-prefix/src/mujoco-populate-stamp/mujoco-populate-build.rule"
+		},
+		{
+			"file" : "/Users/dc/mujoco_mpc-0.0.1/build/_deps/mujoco-subbuild/mujoco-populate-prefix/src/mujoco-populate-stamp/mujoco-populate-configure.rule"
+		},
+		{
+			"file" : "/Users/dc/mujoco_mpc-0.0.1/build/_deps/mujoco-subbuild/mujoco-populate-prefix/src/mujoco-populate-stamp/mujoco-populate-download.rule"
+		},
+		{
+			"file" : "/Users/dc/mujoco_mpc-0.0.1/build/_deps/mujoco-subbuild/mujoco-populate-prefix/src/mujoco-populate-stamp/mujoco-populate-install.rule"
+		},
+		{
+			"file" : "/Users/dc/mujoco_mpc-0.0.1/build/_deps/mujoco-subbuild/mujoco-populate-prefix/src/mujoco-populate-stamp/mujoco-populate-mkdir.rule"
+		},
+		{
+			"file" : "/Users/dc/mujoco_mpc-0.0.1/build/_deps/mujoco-subbuild/mujoco-populate-prefix/src/mujoco-populate-stamp/mujoco-populate-patch_disconnected.rule"
+		},
+		{
+			"file" : "/Users/dc/mujoco_mpc-0.0.1/build/_deps/mujoco-subbuild/mujoco-populate-prefix/src/mujoco-populate-stamp/mujoco-populate-test.rule"
+		},
+		{
+			"file" : "/Users/dc/mujoco_mpc-0.0.1/build/_deps/mujoco-subbuild/mujoco-populate-prefix/src/mujoco-populate-stamp/mujoco-populate-update_disconnected.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"mujoco-populate"
+		],
+		"name" : "mujoco-populate"
+	}
+}

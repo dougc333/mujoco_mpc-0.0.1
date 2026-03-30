@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/dc/mujoco_mpc-0.0.1/build/_deps/glfw3-subbuild/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
